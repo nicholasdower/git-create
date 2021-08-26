@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+
+parser = OptionParser.new do |opts|
+  opts.banner = <<~EOF
+    Creates a new branch based on the repo's default branch. The branch name will
+    have the format: <git-email-username>/<name>
+
+    To install, add this script to your PATH, then run one of the following:
+
+        git config --global alias.create '!git-create' # All repos
+        git config alias.create '!git-create'          # Current repo only
+
+    Usage: git create <name>
+
+    Options:
+  EOF
+
+  opts.on('-h', "Print this message (Don't use --help).") do
+    puts opts
+    exit
+  end
+end
+
+parser.parse!
+
+unless name = ARGV[0]
+  warn 'fatal: you must specify a name'
+  puts
+  puts parser.help
+  exit 1
+end
+
+email = `git config --get user.email`.strip
+parts = email.split('@')
+
+unless parts.size == 2 && !parts[0].strip.empty?
+  STDERR.puts 'fatal: email not found in git config'
+  exit 1
+end
+
+default_branch = `git symbolic-ref refs/remotes/origin/HEAD`.strip
+unless $?.success? && default_branch.match?(/^refs\/remotes\/origin\/[^\/]+$/)
+  fail('fatal: cannot determine default branch')
+end
+
+default_branch = default_branch.gsub(/^refs\/remotes\//, '')
+
+system('git fetch')
+system("git checkout -b #{parts[0]}/#{name} #{default_branch}")
