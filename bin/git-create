@@ -4,8 +4,15 @@ require 'optparse'
 
 parser = OptionParser.new do |opts|
   opts.banner = <<~EOF
-    Creates a new branch based on the repo's default branch. The branch name will
-    have the format: <git-email-username>/<name>
+    Creates a new branch based on the repo's default branch.
+
+    If user.branch-prefix is set in Git's config, the branch name will
+    have the format <git-branch-prefix>/<name>. Otherwise, the branch name
+    will have the format <git-email-username>/<name>.
+
+    To set branch-prefix, run:
+
+        git config --global user.branch-prefix 'boo'.
 
     To install, add this script to your PATH, then run one of the following:
 
@@ -32,12 +39,17 @@ unless name = ARGV[0]
   exit 1
 end
 
-email = `git config --get user.email`.strip
-parts = email.split('@')
+branch_prefix = `git config user.branch-prefix`.strip
+if branch_prefix.empty?
+  email = `git config --get user.email`.strip
+  parts = email.split('@')
 
-unless parts.size == 2 && !parts[0].strip.empty?
-  STDERR.puts 'fatal: email not found in git config'
-  exit 1
+  unless parts.size == 2 && !parts[0].strip.empty?
+    STDERR.puts 'fatal: email not found in git config'
+    exit 1
+  end
+
+  branch_prefix = parts[0]
 end
 
 default_branch = `git symbolic-ref refs/remotes/origin/HEAD`.strip
@@ -48,4 +60,4 @@ end
 default_branch = default_branch.gsub(/^refs\/remotes\//, '')
 
 system('git fetch')
-system("git checkout -b #{parts[0]}/#{name} #{default_branch}")
+system("git checkout -b #{branch_prefix}/#{name} #{default_branch}")
